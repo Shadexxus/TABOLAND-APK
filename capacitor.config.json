@@ -1,0 +1,26 @@
+{
+  "appId": "com.taboland.game",
+  "appName": "TABOLAND",
+  "webDir": "www",
+  "backgroundColor": "#e9ece4",
+  "android": {
+    "backgroundColor": "#e9ece4",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "backgroundColor": "#e9ece4",
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "backgroundColor": "#e9ece4",
+      "showSpinner": false
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TABOLAND</string>
+    <string name="title_activity_main">TABOLAND</string>
+    <string name="package_name">com.taboland.game</string>
+    <string name="custom_url_scheme">com.taboland.game</string>
+</resources>
