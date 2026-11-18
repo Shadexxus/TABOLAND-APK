@@ -1,0 +1,38 @@
+TABOLAND EKRAN VE DIL MENU DUZELTMESI
+====================================
+
+Duzeltilen dosya: www/index.html
+
+1. Oyun ekrani: Phaser.Scale.EXPAND yerine Phaser.Scale.FIT kullanildi.
+   1920x1080 oyun koordinatlari telefon ekranina sigdirilir;
+   farkli en-boy oranlarinda oyunun kenarlari kirpilmaz.
+   Ekran oranina gore kenarlarda bosluk gorunebilir.
+2. Android tam ekran/gezinme cubugu/cevirme degisiminde olcekleme
+   gecikmeli yenileniyor; ani arayuz kaymalarini azaltir.
+3. Dil menusu: liste bagimsiz dikey kaydirilir ve 'Iptal' gorunur kalir.
+   Body'deki tum dokunus hareketlerini engelleyen kural kaldirildi.
+
+GITHUB DESKTOP ILE APK'YA GUNCELLEME
+----------------------------------
+1. GitHub Desktop > TABOLAND-APK deposunda 'Show in Explorer' sec.
+2. Bu duzeltme ZIP'indeki 'www' klasorunu, depodaki mevcut 'www'
+   klasorunun uzerine kopyala. Hedef: TABOLAND-APK/www/index.html.
+3. GitHub Desktop > Changes > Summary: Ekran ve dil menusu duzeltmesi
+   > Commit to main > Push origin.
+4. GitHub > Actions > TABOLAND Android APK > Run workflow.
+5. Yesil basarili derleme > Summary > Artifacts > TABOLAND-APK.
+   ZIP icindeki app-debug.apk dosyasi telefona kurulabilir.
+
+KAYITLI OYUNLAR: Eski uygulamayi silmek kayitlari silebilir. Yeni APK
+mevcut uygulamaya imza uyumsuzlugu nedeniyle kurulmazsa once kayit
+yedegini dusun; bu durum kaynak kod duzeltmesiyle ilgili degildir.
+
+DOGRULAMA
+--------
+HTML icindeki tum JavaScript bloklari Node.js --check ile dogrulandi.
+Dil penceresinin CSS kaydirma alani Chromium uzerinde su ekran
+olculerinde denendi: 915x412, 412x915, 740x360, 390x680.
+Gercek Android cihazda oyun su an tarafimizdan test edilemedi.
+
+Not: Bu dosya APK degildir. Yeni APK GitHub Actions basarili derlemesi
+sonucunda olusur. Android SDK bu calisma ortaminda kurulu degildir.

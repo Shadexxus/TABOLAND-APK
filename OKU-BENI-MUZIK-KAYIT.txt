@@ -1,0 +1,40 @@
+TABOLAND - 2 MUZIK + KAYITLI OYUNA DEVAM (18 Kasim 2026)
+
+GUNCELLENEN DOSYALAR
+  www/index.html
+  www/music/taboland-music.js
+  www/music/taboland-1.mp3
+  www/music/taboland-2.mp3
+  android/app/src/main/java/com/taboland/game/MainActivity.java
+
+OZELLIKLER
+  - Ilk oyun logosu saydamlasirken (3.1. sn) rastgele muzik 1 veya 2'yle baslar.
+  - 2.4 saniyelik yumusak ses acilmasi uygulanir.
+  - Bir muzik biter, 15 sn sessizlik olur, diger muzik devreye girer.
+  - Ana menu/oyun ve kayitli oyuna gecislerde muzik kesilmez veya bastan baslamaz.
+  - Muzik baslangic ses seviyesi %50'dir. Ayarlarda muzik icin ayrica kaydedilen kaydirici vardir.
+  - Lobi muzik ses secenegi de vardir. Yerel depolamada (taboland.music.v1) saklanir.
+  - Kayitli oyun acilirken eksik insan oyuncu algilanirsa 3 secenek sorulur:
+    bot, iflas, sonra katilsin (oyunu beklet).
+  - Oyun durumu onceki oyuncu renkleri, piyon, para, mulk ve sira bilgilerini kullanarak acilir.
+  - Yeni oyun da ilk acilista kaydedilir; hamle sonrasi otomatik kayit devam eder.
+
+DIKKAT
+  - Mevcut oyun yerel oynaniyor. Farkli telefonlara ait ayni anda baglanan
+    gercek oyuncularin yoklugunu otomatik saptamak icin baglantili sunucu gerekir.
+  - "Eksik oyuncu" belirlemesi kayitli insan oyuncunun renginin lobide bir insan
+    koltugunda olup olmamasina gore yapilir. Lobi bos veya bot olarak isaretlenmelidir.
+  - "Sonra katilacak" secenegi oyunu baslatmaz, kaydi oldugu gibi korur.
+  - Ayarlar bu telefonda/uygulama kurulumunda saklanir; hesaplar arasi senkronizasyon yoktur.
+  - Android'de ilk muzik hareketli acilis logosunun kaybolmaya baslamasiyla oynar;
+    tarayicilarda otomatik oynatma kisitlamasi varsa ilk dokunusla oynar.
+
+GITHUB DESKTOP UZERINDEN YENI APK
+  1. GitHub Desktop > TABOLAND-APK > Show in Explorer.
+  2. TABOLAND-MUZIK-KAYIT-GUNCELLEME.zip icerigini bu depoya kopyalayin.
+  3. Varolan dosyalari degistirmeyi onaylayin.
+  4. GitHub Desktop > Summary: muzik ve kayit duzeltmeleri > Commit to main > Push origin.
+  5. GitHub > Actions > TABOLAND Android APK > Run workflow.
+  6. Yesil tikten sonra Summary > Artifacts > TABOLAND-APK > app-debug.apk.
+
+Bu paket APK degil, derlenmeye hazir kaynak projedir.
