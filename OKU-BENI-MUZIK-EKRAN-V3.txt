@@ -1,0 +1,34 @@
+TABOLAND - MUZIK + MASA OLCEGI HOTFIX (18.11.2026)
+
+DUZELTILEN DOSYALAR
+- www/index.html
+- www/music/taboland-music.js
+
+MUZIK
+- Logo solmaya baslayinca rastgele bir parcayla baslama.
+- Android otomatik oynatmayi engellerse ilk dokunusta tekrar deneme.
+- Lobi muzik panelinde "Muzigi Baslat" secenegi ve calisiyor/yukleniyor/hata durumu.
+- Parca bitince 15 saniye sonra diger parcanin calmasi.
+- %50 varsayilan ses, tercihin kalici saklanmasi.
+- Sahne gecislerinde ses oynaticisi yeniden olusturulmaz.
+
+MASA
+- Android alt/ust sistem cubugunun gorunup kaybolmasindan dogan
+  kucuk WebView yukseklik degisimleri oyun kanvasini tekrar olceklendirmez.
+- Gercek ekran dondurme ve buyuk boyut degisikliklerinde uyum saglar.
+- Phaser sahneleri, masa grafikleri ve oyun mantigi degistirilmedi.
+
+UYGULAMA
+1. TABOLAND-MUZIK-MASA-HOTFIX.zip arsivini klasore cikart.
+2. Icindeki "www" klasorunu GitHub Desktop > TABOLAND-APK > Show in Explorer
+   ile acilan depo klasorune kopyala, varolan dosyalari degistir.
+3. GitHub Desktop: Summary -> Commit to main -> Push origin.
+4. GitHub Actions: TABOLAND Android APK -> Run workflow.
+5. Basarili olursa Artifacts -> TABOLAND-APK icindeki app-debug.apk dosyasini al.
+6. Telefonunda lobi muzik panelinde sarki durumunu kontrol et.
+
+DIKKAT
+- Bu proje dosyalari APK degildir; APK GitHub Actions ile derlenir.
+- Kod soz dizimi ve muzik mantigi test edildi; gercek Android cihaz testi yapilmadi.
+- Her GitHub Actions debug build'i farkli imzalanabilir. Android uygulama
+  guncellenmiyor diye eski surumu/verilerini silme; yerel kayitlar kaybolabilir.

@@ -1,118 +1,174 @@
-/* TABOLAND: persistent music service (survives Phaser scene changes). */
+/* TABOLAND v3 - one persistent music player shared by all scenes. */
 (() => {
   'use strict';
   if (window.TabolandMusic) return;
+
   const KEY = 'taboland.music.v1';
   const TRACKS = ['music/taboland-1.mp3', 'music/taboland-2.mp3'];
-  const SILENCE_MS = 15000;
-  const FADE_MS = 2400;
+  const GAP_MS = 15000;
+  const FADE_MS = 2600;
   let volume = 0.5;
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
     if (typeof saved.volume === 'number' && Number.isFinite(saved.volume)) {
-      volume = Math.max(0, Math.min(1, saved.volume));
+      volume = Math.min(1, Math.max(0, saved.volume));
     }
   } catch (_) {}
+
   let audio = null;
-  let firstTrack = Math.random() < 0.5 ? 0 : 1;
-  let trackIndex = firstTrack;
-  let firstStartScheduled = false;
-  let begun = false;
-  let fading = false;
-  let fadeId = 0;
+  let trackIndex = Math.random() < 0.5 ? 0 : 1;
+  let began = false;
+  let scheduled = false;
+  let inFlight = false;
+  let inGap = false;
+  let status = 'waiting';
+  let errorMessage = '';
   let trackTimer = null;
-  let targetReached = false;
-  const notify = () => window.dispatchEvent(new CustomEvent('taboland:musicvolume', {detail: {volume}}));
+  let fadeId = 0;
+  let fadeStartedAt = 0;
 
-  function setVolume(next) {
-    const value = Number(next);
-    if (!Number.isFinite(value)) return;
-    volume = Math.max(0, Math.min(1, value));
-    try { localStorage.setItem(KEY, JSON.stringify({volume})); } catch (_) {}
-    if (audio && !fading) audio.volume = volume;
-    notify();
+  function emitState() {
+    window.dispatchEvent(new CustomEvent('taboland:musicstate', {
+      detail: {status, track: trackIndex + 1, volume, error: errorMessage}
+    }));
   }
-
-  function fadeIn(el) {
-    cancelAnimationFrame(fadeId);
-    fading = true;
-    targetReached = false;
-    const startedAt = performance.now();
-    el.volume = 0;
+  function setStatus(next, error = '') {
+    if (next === status && error === errorMessage) return;
+    status = next;
+    errorMessage = error;
+    emitState();
+  }
+  function setVolume(next) {
+    const n = Number(next);
+    if (!Number.isFinite(n)) return;
+    volume = Math.max(0, Math.min(1, n));
+    try {localStorage.setItem(KEY, JSON.stringify({volume}));} catch (_) {}
+    if (audio && !fadeId) audio.volume = volume;
+    window.dispatchEvent(new CustomEvent('taboland:musicvolume', {detail: {volume}}));
+    emitState();
+  }
+  function clearFade() {
+    if (fadeId) cancelAnimationFrame(fadeId);
+    fadeId = 0;
+  }
+  function fadeIn(current) {
+    if (audio !== current || current.paused || fadeId) return;
+    fadeStartedAt = performance.now();
+    current.volume = 0;
     function frame(now) {
-      if (el !== audio) { fading = false; return; }
-      const progress = Math.min(1, Math.max(0, (now - startedAt) / FADE_MS));
-      el.volume = Math.min(1, Math.max(0, volume * (progress * progress * (3 - 2 * progress))));
-      if (progress < 1) fadeId = requestAnimationFrame(frame);
-      else { fading = false; targetReached = true; el.volume = volume; }
+      if (audio !== current || current.paused) {clearFade(); return;}
+      const p = Math.min(1, (now - fadeStartedAt) / FADE_MS);
+      const eased = p * p * (3 - 2 * p);
+      current.volume = Math.min(1, Math.max(0, volume * eased));
+      if (p < 1) fadeId = requestAnimationFrame(frame);
+      else {fadeId = 0; current.volume = volume;}
     }
     fadeId = requestAnimationFrame(frame);
   }
-
-  function playPending() {
-    if (!audio || !audio.paused || !begun || document.visibilityState === 'hidden') return;
-    const requested = audio;
+  function tryPlay(force = false) {
+    if (!began || !audio || inGap || (inFlight && !force)) return;
+    const current = audio;
+    if (!current.paused) {setStatus('playing'); return;}
     let result;
-    try { result = requested.play(); } catch (_) { return; }
-    if (result && typeof result.then === 'function') {
-      result.then(() => { if (audio === requested) fadeIn(requested); }).catch(() => {
-        // Mobile WebView sometimes needs a real user gesture; pointer/key listeners retry.
+    try {result = current.play();}
+    catch (e) {setStatus('blocked', String(e?.message || e)); return;}
+    if (result?.then) {
+      inFlight = true;
+      result.then(() => {
+        inFlight = false;
+        if (audio !== current) return;
+        setStatus('playing');
+        fadeIn(current);
+      }).catch(err => {
+        inFlight = false;
+        if (audio !== current) return;
+        // Most Android WebViews require a tap before HTML audio may play.
+        // The retry happens inside the next trusted pointer/touch/click event.
+        console.warn('TABOLAND background music needs activation:', err);
+        setStatus('blocked', String(err?.message || err));
       });
-    } else if (audio === requested) fadeIn(requested);
+    } else {
+      setStatus('playing');
+      fadeIn(current);
+    }
   }
-
-  function playTrack(index) {
+  function openTrack(index) {
     clearTimeout(trackTimer);
     trackTimer = null;
-    cancelAnimationFrame(fadeId);
-    fading = false;
-    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
+    inGap = false;
+    clearFade();
+    inFlight = false;
+    if (audio) {audio.pause(); audio.removeAttribute('src'); audio.load();}
     trackIndex = index;
-    const current = new Audio(TRACKS[index]);
+    const current = document.createElement('audio');
+    // A resolved URL works both for localhost and Capacitor's local WebView origin.
+    current.src = new URL(TRACKS[index], document.baseURI).href;
     current.preload = 'auto';
     current.loop = false;
     current.volume = 0;
+    current.setAttribute('playsinline', '');
     audio = current;
+    setStatus('loading');
+    current.addEventListener('playing', () => {
+      if (audio === current) {setStatus('playing'); fadeIn(current);}
+    });
     current.addEventListener('ended', () => {
       if (audio !== current) return;
       audio = null;
-      fading = false;
-      cancelAnimationFrame(fadeId);
-      trackTimer = setTimeout(() => playTrack(1 - index), SILENCE_MS);
+      clearFade();
+      inGap = true;
+      setStatus('gap');
+      trackTimer = setTimeout(() => openTrack(1 - index), GAP_MS);
     }, {once: true});
     current.addEventListener('error', () => {
       if (audio !== current) return;
-      audio = null;
-      fading = false;
-      cancelAnimationFrame(fadeId);
-      trackTimer = setTimeout(() => playTrack(1 - index), SILENCE_MS);
-    }, {once: true});
-    playPending();
+      const code = current.error?.code ?? '?';
+      console.error('TABOLAND music asset could not load', current.src, code);
+      inFlight = false;
+      setStatus('error', 'Ses dosyasi acilamadi (' + code + ')');
+      // Do not silently cycle forever. A user action retries this track.
+    });
+    try {current.load();} catch (_) {}
+    tryPlay();
   }
-
   function start() {
-    if (begun) return;
-    begun = true;
-    playTrack(firstTrack);
+    if (began) return;
+    began = true;
+    openTrack(trackIndex);
   }
-
+  function retryFromGesture() {
+    if (began && !inGap) {
+      if (status === 'error') openTrack(trackIndex);
+      else tryPlay(true);
+    }
+  }
   const service = {
-    get volume() { return volume; },
-    get trackNumber() { return trackIndex + 1; },
-    get playing() { return Boolean(audio && !audio.paused); },
+    get volume() {return volume;},
+    get trackNumber() {return trackIndex + 1;},
+    get status() {return status;},
+    get error() {return errorMessage;},
+    get playing() {return !!(audio && !audio.paused);},
     setVolume,
-    // Called when the splash starts fading, approximately 3.1 seconds after logo appears.
     startWhenLogoFades(delayMs = 3100) {
-      if (firstStartScheduled) return;
-      firstStartScheduled = true;
+      if (scheduled) return;
+      scheduled = true;
       setTimeout(start, Math.max(0, Number(delayMs) || 0));
     },
-    retryAfterGesture: playPending
+    // IMPORTANT: invoke directly in a real user event if autoplay is blocked.
+    activate() {
+      if (!began) {
+        clearTimeout(trackTimer);
+        start();
+      } else retryFromGesture();
+    },
+    retryAfterGesture: retryFromGesture
   };
   window.TabolandMusic = service;
-  document.addEventListener('pointerdown', playPending, {passive: true});
-  document.addEventListener('keydown', playPending);
+  document.addEventListener('pointerdown', retryFromGesture, true);
+  document.addEventListener('touchstart', retryFromGesture, {capture: true, passive: true});
+  document.addEventListener('keydown', retryFromGesture, true);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') playPending();
+    if (!document.hidden && status !== 'gap') retryFromGesture();
   });
+  window.addEventListener('pageshow', () => {if (began) retryFromGesture();});
 })();

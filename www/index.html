@@ -126,7 +126,9 @@ canvas{touch-action:none}.tl-fgrid,.tl-langgrid,.tl-dialog{touch-action:pan-y;-w
 
 /* Keep the immersive game viewport stable across device rotations/system-bar changes. */
 html,body{touch-action:auto}
-#game{width:100%;height:100%;height:100dvh;overflow:hidden}
+/* Prevent transient Android system bars from changing the Phaser canvas size. */
+#game{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;contain:layout size}
+#game canvas{max-width:none;max-height:none}
 #game canvas{display:block;touch-action:none}
 .tl-dialog,.tl-langcard,.tl-langgrid,.tl-fgrid{touch-action:pan-y}
 /* --- Mod seçimi: tüm ülkeler, kaydırılabilir cam ızgara --- */
@@ -156,6 +158,9 @@ html,body{touch-action:auto}
 #tl-lobby .tl-music-label{font:700 16px Arial,sans-serif}
 #tl-lobby .tl-music-slider{width:100%;accent-color:#398961;touch-action:pan-x}
 #tl-lobby .tl-music-readout{font:700 16px Arial,sans-serif;justify-self:end}
+#tl-lobby .tl-music-state{font:600 13px/1.3 Arial,sans-serif;color:#56614c}
+#tl-lobby .tl-music-activate{border:0;background:#27855a;color:white;border-radius:9px;padding:10px;font:700 14px Arial,sans-serif;cursor:pointer}
+#tl-lobby .tl-music-activate[hidden]{display:none}
 .tl-dialog .tl-missing-text{max-width:460px;text-align:center;font:600 17px/1.45 Arial,sans-serif;margin:12px auto 18px;color:#273344}
 .tl-dialog .tl-modal-card:has(.tl-missing-text){max-height:min(95dvh,650px);overflow:auto;scrollbar-width:thin}
 .tl-dialog .tl-modal-card:has(.tl-missing-text)>button{display:block;margin:8px auto;min-width:min(320px,85vw);max-width:100%;white-space:normal}
@@ -199,10 +204,25 @@ window.mountTabolandLobby = function(scene,api){
   const musicSlider=element('input','tl-music-slider',musicPanel);
   musicSlider.type='range';musicSlider.min='0';musicSlider.max='100';musicSlider.step='1';
   const musicReadout=element('output','tl-music-readout',musicPanel);
-  function refreshMusicUI(){let v=Math.round((window.TabolandMusic?.volume??.5)*100);musicSlider.value=String(v);musicReadout.textContent=v+'%';musicButton.textContent='♫ '+v+'%';musicLabel.textContent=language==='tr'?'Müzik sesi':'Music volume';}
+  const musicState=element('div','tl-music-state',musicPanel);
+  const musicActivate=element('button','tl-music-activate',musicPanel);
+  musicActivate.type='button';
+  musicActivate.onclick=event=>{event.stopPropagation();window.TabolandMusic?.activate();refreshMusicUI();};
+  function refreshMusicUI(){
+    const mgr=window.TabolandMusic;
+    const v=Math.round((mgr?.volume??.5)*100),tr=language==='tr';
+    musicSlider.value=String(v);musicReadout.textContent=v+'%';
+    musicButton.textContent='♫ '+v+'%';
+    musicLabel.textContent=tr?'Müzik sesi':'Music volume';
+    const state=mgr?.status||'waiting';
+    const labels=tr?{playing:'Müzik çalıyor',gap:'Sonraki şarkı için 15 sn ara',loading:'Müzik yükleniyor',blocked:'Ses için aşağıdaki düğmeye bas',waiting:'Logo sonrası müzik başlayacak',error:'Müzik yüklenemedi; yeniden dene'}:{playing:'Music playing',gap:'15-second break',loading:'Loading music',blocked:'Tap below to enable music',waiting:'Music begins after the logo',error:'Could not load audio; retry'};
+    musicState.textContent=labels[state]||labels.waiting;
+    musicActivate.hidden=state==='playing'||state==='gap';
+    musicActivate.textContent=tr?'▶ Müziği Başlat':'▶ Enable music';
+  }
   musicSlider.addEventListener('input',()=>window.TabolandMusic?.setVolume(Number(musicSlider.value)/100));
   musicSlider.addEventListener('pointerdown',e=>e.stopPropagation());
-  window.addEventListener('taboland:musicvolume',refreshMusicUI);
+  window.addEventListener('taboland:musicvolume',refreshMusicUI);window.addEventListener('taboland:musicstate',refreshMusicUI);
   refreshMusicUI();
   const views=slots.map((slot,i)=>{
     const reflection=element('div','tl-reflection');reflection.style.left=`${centers[i]-7.85}%`;reflection.style.setProperty('--index',i);
@@ -309,7 +329,7 @@ window.mountTabolandLobby = function(scene,api){
   // Full roster snapshot from the community; never accept names as HTML or load stale cached names.
   const sync=event=>{const incoming=event.detail?.slots;if(!Array.isArray(incoming)||incoming.length>4)return;closePalette();swapRequest=null;clearSwap();slots.forEach((slot,i)=>{const s=incoming[i];slot.type=s&&['human','bot'].includes(s.type)?s.type:'empty';slot.name=s&&typeof s.name==='string'?s.name.trim().slice(0,40):''});const used=new Set();slots.filter(s=>s.type!=='empty').forEach(s=>{if(used.has(s.color))s.color=colors.find(c=>!used.has(c));used.add(s.color)});render()};
   window.addEventListener('taboland:participants',sync);
-  scene.events.once('shutdown',()=>{disposed=true;clearTimeout(timer);window.removeEventListener('taboland:participants',sync);window.removeEventListener('taboland:musicvolume',refreshMusicUI);swapRequest=null;clearSwap();closePalette();closeDialog();root.remove()});
+  scene.events.once('shutdown',()=>{disposed=true;clearTimeout(timer);window.removeEventListener('taboland:participants',sync);window.removeEventListener('taboland:musicvolume',refreshMusicUI);window.removeEventListener('taboland:musicstate',refreshMusicUI);swapRequest=null;clearSwap();closePalette();closeDialog();root.remove()});
   if(window.TABOLAND_COMMUNITY?.slots)sync({detail:window.TABOLAND_COMMUNITY});else render();
 };
 </script>
@@ -4578,15 +4598,32 @@ ${this.reasonText(p.reason)}`,34,"#ff9a8a",{shadow:!0,stroke:"#000",strokeThickn
     <button id="tl-reload" style="font:700 20px Oswald,sans-serif;padding:10px 22px;border-radius:14px;border:0;background:#cdeccf;color:#145c27;margin:4px;cursor:pointer">YEN\u0130DEN DENE</button>
     <button id="tl-close" style="font:700 20px Oswald,sans-serif;padding:10px 22px;border-radius:14px;border:0;background:#e8ecf5;color:#1b2a55;margin:4px;cursor:pointer">KAPAT</button>
     <button id="tl-reset" style="font:700 20px Oswald,sans-serif;padding:10px 22px;border-radius:14px;border:0;background:#ffd2cc;color:#8a1f17;margin:4px;cursor:pointer">KAYITLARI SIFIRLA VE A\xC7</button></div>`,document.body.appendChild(e),e.querySelector("#tl-reload").onclick=()=>location.reload(),e.querySelector("#tl-close").onclick=()=>e.remove(),e.querySelector("#tl-reset").onclick=()=>{try{for(let t of Object.keys(localStorage))t.startsWith("taboland.")&&localStorage.removeItem(t)}catch{}location.reload()}}window.addEventListener("error",a=>{let e=String(a.message||a.error||"");/ResizeObserver|Script error/i.test(e)||dp(e)});window.addEventListener("unhandledrejection",a=>dp(a.reason?.message??a.reason));window.toggleFullscreen=()=>{let a=document,e=a.documentElement;if(a.fullscreenElement||a.webkitFullscreenElement){try{(a.exitFullscreen||a.webkitExitFullscreen).call(a)}catch{}return}if(!(a.fullscreenEnabled||a.webkitFullscreenEnabled)){window.Capacitor||Ug();return}let t=()=>{try{let n=(e.requestFullscreen||e.webkitRequestFullscreen).call(e);return n&&n.then?n:Promise.resolve()}catch(n){return Promise.reject(n)}};t().catch(()=>{let n=()=>{["pointerup","click","keyup","touchend"].forEach(i=>window.removeEventListener(i,n,!0)),t().catch(()=>{try{window.game?.scale.startFullscreen()}catch{Ug()}})};["pointerup","click","keyup","touchend"].forEach(i=>window.addEventListener(i,n,!0))})};function Ug(){if(document.getElementById("tl-fsn"))return;let a=document.createElement("div");a.id="tl-fsn",a.textContent="Bu sayfa tam ekrana izin vermiyor. F11 tu\u015Funa bas ya da dosyay\u0131 indirip do\u011Frudan a\xE7.",a.style.cssText="position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:2000;background:#0b1430e6;color:#fff;padding:12px 22px;border-radius:24px;font:600 16px Arial,sans-serif",document.body.appendChild(a),setTimeout(()=>a.remove(),4e3)}window.enterFullscreen=()=>{let a=document,e=a.documentElement;if(!(a.fullscreenElement||a.webkitFullscreenElement||!(a.fullscreenEnabled||a.webkitFullscreenEnabled)))try{(e.requestFullscreen||e.webkitRequestFullscreen).call(e)?.then?.(()=>screen.orientation?.lock?.("landscape").catch(()=>{}))?.catch?.(()=>{})}catch{}};window.isFullscreen=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);window.addEventListener("keydown",a=>{(a.key==="f"||a.key==="F")&&!/INPUT|TEXTAREA/.test(document.activeElement?.tagName)&&window.toggleFullscreen()});async function AA(){let a=Promise.all([document.fonts.load("700 30px Oswald"),document.fonts.load("500 30px Oswald"),document.fonts.load("700 30px Oswald","\u0131\u015F\u011F\xFC\xE7\xF6\u0130\u015E\u011E")]).catch(()=>{});if(await Promise.race([a,new Promise(t=>setTimeout(t,2500))]),typeof Phaser>"u"){dp("Oyun motoru (Phaser) y\xFCklenemedi.");return}document.getElementById("boot")?.remove();let e=new Phaser.Game({type:Phaser.AUTO,parent:"game",width:1920,height:1080,backgroundColor:"#e9ece4",scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},dom:{createContainer:!0},render:{antialias:!0,roundPixels:!1,maxTextures:1},scene:[kr,Ar,rl]});Object.assign(window,{game:e});
-let layoutRefresh;
-const refreshGameViewport=()=>{clearTimeout(layoutRefresh);layoutRefresh=setTimeout(()=>{
-  try{if(window.game&&window.game.scale)window.game.scale.refresh()}catch(_){}
-},180)};
-window.addEventListener("orientationchange",refreshGameViewport);
-window.addEventListener("fullscreenchange",refreshGameViewport);
-window.addEventListener("webkitfullscreenchange",refreshGameViewport);
-window.addEventListener("resize",refreshGameViewport);
-window.visualViewport?.addEventListener("resize",refreshGameViewport)
+
+/* Stable viewport dimensions: ignore tiny Android navigation-bar resize events,
+   remeasure on real rotation/fullscreen changes instead. */
+const gameHost=document.getElementById('game');
+let lastW=0,lastH=0,lastOrientation='',viewportTimer=0;
+function applyStableGameSize(force=false){
+  if(!gameHost)return;
+  const w=Math.max(1,document.documentElement.clientWidth||window.innerWidth);
+  const h=Math.max(1,document.documentElement.clientHeight||window.innerHeight);
+  const ori=w>=h?'landscape':'portrait';
+  const major=(!lastW||!lastH||ori!==lastOrientation||Math.abs(w-lastW)>80||Math.abs(h-lastH)>80);
+  if(!force&&!major)return;
+  lastW=w;lastH=h;lastOrientation=ori;
+  gameHost.style.width=w+'px';gameHost.style.height=h+'px';
+  try{window.game?.scale?.refresh()}catch(_){}
+}
+applyStableGameSize(true);
+function scheduleResize(force=false){
+  clearTimeout(viewportTimer);
+  viewportTimer=setTimeout(()=>applyStableGameSize(force),450);
+}
+setTimeout(()=>applyStableGameSize(true),1000);
+window.addEventListener('orientationchange',()=>scheduleResize(true));
+window.addEventListener('fullscreenchange',()=>scheduleResize(true));
+window.addEventListener('webkitfullscreenchange',()=>scheduleResize(true));
+window.addEventListener('resize',()=>scheduleResize(false));
 }try{Or(!1,Kt())}catch{}AA();})();
 /*! Bundled license information:
 
