@@ -1,10 +1,10 @@
-/* TABOLAND v3 - one persistent music player shared by all scenes. */
+/* TABOLAND v5 - persistent user theme, repeat after 15 seconds. */
 (() => {
   'use strict';
   if (window.TabolandMusic) return;
 
   const KEY = 'taboland.music.v1';
-  const TRACKS = ['music/taboland-1.mp3', 'music/taboland-2.mp3'];
+  const TRACKS = ['music/taboland-theme.mp3'];
   const GAP_MS = 15000;
   const FADE_MS = 2600;
   let volume = 0.5;
@@ -16,7 +16,7 @@
   } catch (_) {}
 
   let audio = null;
-  let trackIndex = Math.random() < 0.5 ? 0 : 1;
+  let trackIndex = 0;
   let began = false;
   let scheduled = false;
   let inFlight = false;
@@ -118,7 +118,7 @@
       clearFade();
       inGap = true;
       setStatus('gap');
-      trackTimer = setTimeout(() => openTrack(1 - index), GAP_MS);
+      trackTimer = setTimeout(() => openTrack(0), GAP_MS);
     }, {once: true});
     current.addEventListener('error', () => {
       if (audio !== current) return;
@@ -144,7 +144,7 @@
   }
   const service = {
     get volume() {return volume;},
-    get trackNumber() {return trackIndex + 1;},
+    get trackNumber() {return 1;},
     get status() {return status;},
     get error() {return errorMessage;},
     get playing() {return !!(audio && !audio.paused);},
