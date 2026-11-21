@@ -47,6 +47,22 @@ jobs:
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
 
+
+      - name: Kullanicinin en son V4 oyun kodunu esas al
+        shell: bash
+        env:
+          SOURCE_URL: "https://d2ol7oe51mr4n9.cloudfront.net/user_3DzTtgkqSqW5HmuTA87oF2WEVU4/6b268f3c-9290-4dd5-9a85-39417c6fffe8.zip"
+        run: |
+          set -euo pipefail
+          if [ "$(git hash-object www/index.html)" = "2f1d8a9bd1909caf3ab836968b9a06a3c730b58b" ]; then
+            curl --fail --location --retry 3 --retry-delay 3 --output "$RUNNER_TEMP/taboland-v4.zip" "$SOURCE_URL"
+            echo "ed96e76e436c5dc07abe15830eca85802726dd2c96773ab3b68369ad880e3737  $RUNNER_TEMP/taboland-v4.zip" | sha256sum --check
+            unzip -o "$RUNNER_TEMP/taboland-v4.zip" 'www/index.html' 'www/music/taboland-music.js' -d .
+            echo 'Kullanicinin V4 dosyalari temel alindi'
+          else
+            echo 'Guncel oyun kaynagi zaten mevcut; eski dosyalarla ustune yazilmadi'
+          fi
+
       - name: V5 oyunu ve yeni muzik dosyasini hazirla
         shell: bash
         env:
